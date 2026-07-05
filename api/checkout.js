@@ -15,7 +15,7 @@ const CURRENCY = 'gbp';
 const SERVICE_CHARGE_RATE = 0.10; // 10% service charge, matches the website
 
 // ---- EDIT THIS: your live website address (no trailing slash) ----
-const SITE = 'https:/hamperkey.co.uk';
+const SITE = 'https://hamperkey.co.uk';
 // -------------------------------------------------------------------
 const SUCCESS_URL = SITE + '/index.html?session_id={CHECKOUT_SESSION_ID}#thank-you';
 const CANCEL_URL  = SITE + '/index.html';
