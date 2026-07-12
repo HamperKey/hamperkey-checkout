@@ -15,7 +15,7 @@ const CURRENCY = 'gbp';
 const SERVICE_CHARGE_RATE = 0.10; // 10% service charge, matches the website
 
 // ---- EDIT THIS: your live website address (no trailing slash) ----
-const SITE = 'https://hamperkey.co.uk';
+const SITE = 'https://YOUR-DOMAIN.co.uk';
 // -------------------------------------------------------------------
 const SUCCESS_URL = SITE + '/index.html?session_id={CHECKOUT_SESSION_ID}#thank-you';
 const CANCEL_URL  = SITE + '/index.html';
@@ -76,9 +76,9 @@ const PRICE_LIST_GBP = {
   'House Prosecco': 12.00,
   'Champagne 75cl': 28.00,
   'Kentish Pale Ale': 8.50,
-  'Kentish Cider': 8.50,
-  'White Wine 75cl': 10.00,
-  'Red Wine 75cl': 10.00,
+  'Biddenden Vintage Cider': 8.50,
+  'Biddenden Ortega 2023': 10.00,
+  'Gribble Bridge Dornfelder 2024': 10.00,
   'Butter 250g': 2.20,
   'Eggs 6-pack': 3.20,
   'Whole Milk 1L': 1.80,
@@ -117,7 +117,11 @@ const PRICE_LIST_GBP = {
   'Kent Crisps Sea Salt': 2.20,
   'Kent Crisps S&V': 2.20,
   'Kent Crisps Bacon': 2.20,
-  'Kent Crisps C&O': 2.20
+  'Kent Crisps C&O': 2.20,
+  'Kent Crisps Sea Salt Large': 3.50,
+  'Kent Crisps S&V Large': 3.50,
+  'Kent Crisps Bacon Large': 3.50,
+  'Kent Crisps C&O Large': 3.50
 };
 
 // Build a lookup keyed by product code (slug) -> { display name, pence }
