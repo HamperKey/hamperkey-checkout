@@ -62,7 +62,7 @@ const PRICE_LIST_GBP = {
   'Curry Night Kit': 32,
   'BBQ Box': 55,
   'Pie &amp; Mash Supper': 30,
-  'Sparkling Wine': 18,
+  'Biddenden Sparkling Grape Juice': 12,
   'Birthday Cake': 22,
   'Local Flowers': 20,
   'Dog Welcome Add-on': 15,
@@ -76,16 +76,10 @@ const PRICE_LIST_GBP = {
   'Biddenden Apple Juice 1L': 4.3,
   'Harrogate Spring Water &mdash; Still 1.5L': 1.5,
   'Nestlé Pure Life &mdash; Still Spring Water 1.5L': 1.25,
-  'Vini Dei Cardinali &mdash; Prosecco Superiore 75cl': 9.99,
-  'Bollinger &mdash; Special Cuvée Champagne NV 75cl': 64.99,
-  'Paul Langier &mdash; Champagne Brut 75cl': 29.99,
-  'Gribble Bridge (Biddenden) &mdash; Sparkling White 2023': 29.99,
-  'Gribble Bridge (Biddenden) &mdash; Sparkling Rosé 2020': 29.99,
-  'Old Speckled Hen &mdash; English Pale Ale 500ml': 2.99,
-  'Biddenden &mdash; Kentish Vintage Cider (4-pack, 330ml)': 9.5,
-  'Mud House &mdash; Sauvignon Blanc 75cl': 11.99,
-  'Dark Horse &mdash; Chardonnay 75cl': 11.99,
-  'Dark Horse &mdash; Cabernet Sauvignon 75cl': 11.99,
+  'Biddenden &mdash; Sparkling Grape Juice 750ml': 8.5,
+  'Biddenden &mdash; Sparkling Apple Juice 750ml': 7.5,
+  'Biddenden &mdash; Pear Juice 1L': 5.5,
+  'Beck&apos;s Blue &mdash; Non-Alcoholic Lager (4-pack, 275ml)': 4.5,
   'Onken &mdash; Natural Set Yogurt 450g': 2.09,
   'President &mdash; Unsalted Butter 250g': 3.49,
   'Free-Range Eggs (6-pack)': 2.79,
@@ -156,10 +150,18 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const { items, notes } = req.body || {};
+    const { items, notes, partner_code } = req.body || {};
     if (!Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ error: 'Your basket is empty.' });
     }
+
+    // Sanitize the partner code: letters, numbers, hyphens only, max 40 chars.
+    // This is what lets you filter Stripe payments by partner at month-end
+    // to calculate each partner's commission.
+    const partnerCode = String(partner_code || '')
+      .trim()
+      .slice(0, 40)
+      .replace(/[^a-zA-Z0-9-]/g, '');
 
     // Tally quantities per product code, pricing ONLY from our catalog
     const qty = {};
@@ -205,7 +207,10 @@ export default async function handler(req, res) {
       // Collect the customer details you need for delivery
       shipping_address_collection: { allowed_countries: ['GB'] },
       phone_number_collection: { enabled: true },
-      metadata: { customer_notes: (notes || '').slice(0, 480) }
+      metadata: {
+        customer_notes: (notes || '').slice(0, 480),
+        partner_code: partnerCode || 'direct'
+      }
     });
 
     return res.status(200).json({ url: session.url });
