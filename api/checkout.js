@@ -5,6 +5,14 @@
 //
 //  BEFORE GOING LIVE, edit the two URLs marked "EDIT THIS" below to use
 //  your real website address.
+//
+//  NOTE: This price list was rebuilt from the live catalogue in
+//  index.html on 2026-09-08 to keep it in sync with the actual
+//  site content (real supplier products, updated prices). If you add or
+//  change a product in index.html's Custom Builder / packages, add or
+//  update the matching line here too — the two must always match
+//  exactly (name AND price) or the item will be silently dropped from
+//  checkout.
 // =====================================================================
 
 import Stripe from 'stripe';
@@ -15,7 +23,7 @@ const CURRENCY = 'gbp';
 const SERVICE_CHARGE_RATE = 0.10; // 10% service charge, matches the website
 
 // ---- EDIT THIS: your live website address (no trailing slash) ----
-const SITE = 'https://hamperkey.co.uk';
+const SITE = 'https://YOUR-DOMAIN.co.uk';
 // -------------------------------------------------------------------
 const SUCCESS_URL = SITE + '/index.html?session_id={CHECKOUT_SESSION_ID}#thank-you';
 const CANCEL_URL  = SITE + '/index.html';
@@ -33,12 +41,23 @@ function slug(s){
     .replace(/^-+|-+$/g,'');
 }
 
+// Unescapes HTML entities for display in Stripe checkout (product name only —
+// pricing/matching still uses the raw key via slug() above).
+function decodeEntities(s){
+  return String(s)
+    .replace(/&amp;/g,'&')
+    .replace(/&ndash;/g,'\u2013')
+    .replace(/&mdash;/g,'\u2014')
+    .replace(/&apos;/g,"'")
+    .replace(/&pound;/g,'£');
+}
+
 // ---------------------------------------------------------------------
 //  MASTER PRICE LIST (in £). This is the single source of truth.
-//  To change a price, edit it here and redeploy — nothing else needed.
+//  To change a price, edit it here AND in index.html — they must match.
 // ---------------------------------------------------------------------
 const PRICE_LIST_GBP = {
-  // ---- Ready-made packages ----
+// ---- Ready-made packages ----
   'Dog-Friendly Welcome Pack': 25,
   'Baby Traveller&apos;s Kit': 35,
   'Classic Arrival Pack': 39,
@@ -52,22 +71,7 @@ const PRICE_LIST_GBP = {
   'Family No-Shop Bundle': 149,
   'Group House Starter': 299,
 
-  // ---- Custom Builder options ----
-  'Traditional Full English Kit': 45,
-  'Continental Breakfast': 18,
-  'Full English Upgrade': 25,
-  'Healthy Start Box': 22,
-  'Sunday Brunch Box': 35,
-  'Easy Pasta Night': 29,
-  'Curry Night Kit': 32,
-  'BBQ Box': 55,
-  'Pie &amp; Mash Supper': 30,
-  'Biddenden Sparkling Grape Juice': 12,
-  'Birthday Cake': 22,
-  'Local Flowers': 20,
-  'Dog Welcome Add-on': 15,
-
-  // ---- Individual add-ons ----
+// ---- Add-ons (Custom Builder) ----
   'Coca-Cola (8-pack cans)': 5.99,
   'Diet Coke (8-pack cans)': 4.5,
   'Fanta Orange (8-pack cans)': 6,
@@ -132,12 +136,32 @@ const PRICE_LIST_GBP = {
   'Kent Crisps &mdash; Sea Salt &amp; Vinegar 150g': 2.5,
   'Kent Crisps &mdash; Smoked Bacon 150g': 2.5,
   'Kent Crisps &mdash; Cheese &amp; Onion 150g': 2.5,
+  // ---- Added today (Custom Request / restricted add-ons update) ----
+  'IPA': 5.50,
+  'Boero Dark Chocolate Cherry Shot': 1.50,
+  'Lightly Salted Butter 250g': 2.20,
+  'Semi-Skimmed Milk 1L': 1.80,
+  'Fruit Yogurt 450g': 2.10,
+  'Clementines / Easy Peelers': 2.60,
+  'Seedless White Grapes 500g': 3.50,
+  'Mixed Olives 150g': 4.50,
+  'Crispbread &amp; Flatbreads': 3.00,
+  'Plain Muesli 500g': 4.00,
+  'Salted Cashews 150g': 4.50,
+  'Chocolate &amp; Truffles Selection': 6.50,
+  'Orange Juice 1L': 3.50,
+  'Fruit Conserve': 4.00,
+  'Biscuits &amp; Cookies Selection': 3.50,
+  'Van Nahmen White Peach Nectar': 3.90,
+  'Pesto Crisps (Tartuflanghe)': 2.80,
+  'The Fine Cheese Co. Fresh Brillat-Savarin &amp; Apricot Cheesecake Biscuits 120g': 3.70,
+  'The Fine Cheese Co. English Oak-Smoked Cheddar 200g': 6.00
 };
 
 // Build a lookup keyed by product code (slug) -> { display name, pence }
 const CATALOG = {};
 for (const [name, gbp] of Object.entries(PRICE_LIST_GBP)) {
-  CATALOG[slug(name)] = { name: name.replace(/&amp;/g,'&').replace(/&ndash;/g,'-'), amount: Math.round(gbp * 100) };
+  CATALOG[slug(name)] = { name: decodeEntities(name), amount: Math.round(gbp * 100) };
 }
 
 export default async function handler(req, res) {
@@ -150,18 +174,10 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const { items, notes, partner_code } = req.body || {};
+    const { items, notes } = req.body || {};
     if (!Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ error: 'Your basket is empty.' });
     }
-
-    // Sanitize the partner code: letters, numbers, hyphens only, max 40 chars.
-    // This is what lets you filter Stripe payments by partner at month-end
-    // to calculate each partner's commission.
-    const partnerCode = String(partner_code || '')
-      .trim()
-      .slice(0, 40)
-      .replace(/[^a-zA-Z0-9-]/g, '');
 
     // Tally quantities per product code, pricing ONLY from our catalog
     const qty = {};
@@ -207,10 +223,7 @@ export default async function handler(req, res) {
       // Collect the customer details you need for delivery
       shipping_address_collection: { allowed_countries: ['GB'] },
       phone_number_collection: { enabled: true },
-      metadata: {
-        customer_notes: (notes || '').slice(0, 480),
-        partner_code: partnerCode || 'direct'
-      }
+      metadata: { customer_notes: (notes || '').slice(0, 480) }
     });
 
     return res.status(200).json({ url: session.url });
