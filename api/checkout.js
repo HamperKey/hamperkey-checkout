@@ -164,6 +164,20 @@ for (const [name, gbp] of Object.entries(PRICE_LIST_GBP)) {
   CATALOG[slug(name)] = { name: decodeEntities(name), amount: Math.round(gbp * 100) };
 }
 
+// ---------------------------------------------------------------------
+//  PARTNER COMMISSION RATES
+//  Add a new entry here for each partner, using the same code they'll
+//  share as ?partner=CODE in their unique link (see index.html's
+//  PARTNER TRACKING section). Rate is a decimal (0.12 = 12%).
+//  Commission is calculated on the goods subtotal only (not the 10%
+//  service charge), and is recorded in Stripe metadata on every order —
+//  it does NOT change what the guest pays.
+// ---------------------------------------------------------------------
+const PARTNER_COMMISSION_RATES = {
+  'veeve': 0.12,
+};
+const DEFAULT_PARTNER_COMMISSION_RATE = 0.10; // used if a partner_code is present but not listed above
+
 export default async function handler(req, res) {
   // Allow the website (different domain) to call this function
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -174,7 +188,7 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const { items, notes } = req.body || {};
+    const { items, notes, partner_code } = req.body || {};
     if (!Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ error: 'Your basket is empty.' });
     }
@@ -215,6 +229,24 @@ export default async function handler(req, res) {
       });
     }
 
+    // Partner commission tracking (does not affect what the guest pays —
+    // recorded in metadata only, for month-end commission reporting)
+    // Lower-cased so ?partner=Veeve and ?partner=veeve both match the rate table
+    const cleanPartnerCode = String(partner_code || '').trim().toLowerCase().slice(0, 40);
+    let commissionMeta = {};
+    if (cleanPartnerCode) {
+      const rate = Object.prototype.hasOwnProperty.call(PARTNER_COMMISSION_RATES, cleanPartnerCode)
+        ? PARTNER_COMMISSION_RATES[cleanPartnerCode]
+        : DEFAULT_PARTNER_COMMISSION_RATE;
+      const commissionPence = Math.round(subtotal * rate);
+      commissionMeta = {
+        partner_code: cleanPartnerCode,
+        commission_rate: String(rate),
+        commission_gbp: (commissionPence / 100).toFixed(2),
+        subtotal_gbp: (subtotal / 100).toFixed(2)
+      };
+    }
+
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
       line_items,
@@ -223,7 +255,7 @@ export default async function handler(req, res) {
       // Collect the customer details you need for delivery
       shipping_address_collection: { allowed_countries: ['GB'] },
       phone_number_collection: { enabled: true },
-      metadata: { customer_notes: (notes || '').slice(0, 480) }
+      metadata: { customer_notes: (notes || '').slice(0, 480), ...commissionMeta }
     });
 
     return res.status(200).json({ url: session.url });
