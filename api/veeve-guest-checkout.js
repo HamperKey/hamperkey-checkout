@@ -2,7 +2,8 @@
 //  HamperKey — Veeve guest page checkout (Vercel serverless function)
 //  Save as api/veeve-guest-checkout.js next to api/checkout.js.
 //  Guests of Veeve pay the guest price; HamperKey keeps the supply price
-//  and owes Veeve the £65 service fee per order (paid monthly).
+//  and owes Veeve the £65 service fee per order (paid monthly) when the guest
+//  came through Veeve's link (?partner=veeve). Direct orders record £0 fee.
 //  No 12% commission applies to these orders.
 // =====================================================================
 import Stripe from 'stripe';
@@ -40,6 +41,8 @@ export default async function handler(req, res) {
       if (!clean(b[k], 200)) return res.status(400).json({ error: 'Missing details: ' + k });
     }
 
+    // Veeve's £65 fee is owed only on orders that came through Veeve's link
+    const referredByVeeve = clean(b.partner_code, 40).toLowerCase() === 'veeve';
     const delivery = clean(b.dDate, 10) + ' ' + clean(b.wFrom, 5) + '-' + clean(b.wTo, 5);
     const meta = {
       order_type: 'veeve_private_page',
@@ -52,7 +55,8 @@ export default async function handler(req, res) {
       access: clean(b.access, 60) + (b.accessNote ? ' - ' + clean(b.accessNote, 200) : ''),
       dietary: clean(b.diet, 480) || 'None given',
       requests: clean(b.reqs, 480) || 'None',
-      veeve_fee_gbp: VEEVE_FEE_GBP.toFixed(2),
+      veeve_referred: referredByVeeve ? 'yes' : 'no',
+      veeve_fee_gbp: referredByVeeve ? VEEVE_FEE_GBP.toFixed(2) : '0.00',
       hamperkey_supply_gbp: pkg.supply.toFixed(2)
     };
 
