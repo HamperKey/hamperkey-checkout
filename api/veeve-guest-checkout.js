@@ -10,7 +10,7 @@ import Stripe from 'stripe';
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 // ---- EDIT THIS: same live website address as in checkout.js (no trailing slash) ----
-const SITE = 'https://YOUR-DOMAIN.co.uk';
+const SITE = 'https://hamperkey.co.uk';
 const PAGE_PATH = '/veeve-guests.html';
 const VEEVE_FEE_GBP = 65;
 
